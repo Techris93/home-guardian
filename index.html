@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Guardian — Smart Network Monitor</title>
+    <meta name="description" content="Monitor your home network devices and get alerts for suspicious activity.">
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #080812;
+            --bg-card: rgba(18, 18, 35, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.06);
+            --accent: #6c5ce7;
+            --accent-glow: rgba(108, 92, 231, 0.25);
+            --green: #00e676;
+            --red: #ff5252;
+            --yellow: #ffd740;
+            --text: #eee;
+            --text-sec: #8a8fa8;
+            --text-muted: #555a70;
+            --r: 16px;
+            --font: 'Inter', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            background-image:
+                radial-gradient(ellipse at 30% 0%, rgba(108, 92, 231, 0.08), transparent 50%),
+                radial-gradient(ellipse at 70% 100%, rgba(0, 230, 118, 0.06), transparent 50%);
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 32px 20px 60px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .header h1 span {
+            background: linear-gradient(135deg, var(--accent), var(--green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: var(--text-sec);
+            font-size: 1rem;
+        }
+
+        /* Stats Bar */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+
+        /* Actions */
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 10px;
+            font-family: var(--font);
+            font-weight: 700;
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 4px 20px var(--accent-glow);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-sec);
+            border: 1px solid var(--glass-border);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        /* Device Grid */
+        .section-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .device-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .device-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 16px;
+            position: relative;
+            transition: all 0.3s;
+            overflow: hidden;
+        }
+
+        .device-card:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+            transform: translateY(-2px);
+        }
+
+        .device-card.unknown {
+            border-left: 3px solid var(--yellow);
+        }
+
+        .device-card.trusted {
+            border-left: 3px solid var(--green);
+        }
+
+        .device-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .device-icon {
+            font-size: 1.5rem;
+        }
+
+        .device-status {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+
+        .device-status.known {
+            background: rgba(0, 230, 118, 0.15);
+            color: var(--green);
+        }
+
+        .device-status.unknown {
+            background: rgba(255, 215, 64, 0.15);
+            color: var(--yellow);
+        }
+
+        .device-ip {
+            font-size: 1rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .device-mac {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-family: monospace;
+            margin-top: 2px;
+        }
+
+        .device-vendor {
+            font-size: 0.8rem;
+            color: var(--text-sec);
+            margin-top: 6px;
+        }
+
+        .trust-btn {
+            margin-top: 10px;
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-sec);
+            border-radius: 8px;
+            font-family: var(--font);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .trust-btn:hover {
+            background: rgba(108, 92, 231, 0.1);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Alerts */
+        .alert-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .alert-item {
+            padding: 12px 16px;
+            background: rgba(255, 82, 82, 0.06);
+            border: 1px solid rgba(255, 82, 82, 0.12);
+            border-radius: 10px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert-item.warning {
+            background: rgba(255, 215, 64, 0.06);
+            border-color: rgba(255, 215, 64, 0.12);
+        }
+
+        .alert-time {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-left: auto;
+            white-space: nowrap;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 24px 0;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        .footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        @media (max-width: 640px) {
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .device-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .scanning {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: .6;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏠 <span>Home Guardian</span></h1>
+            <p>Smart network monitor — see every device on your WiFi</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="total-count">—</div>
+                <div class="stat-label">Devices</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="known-count" style="color:var(--green)">—</div>
+                <div class="stat-label">Trusted</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="unknown-count" style="color:var(--yellow)">—</div>
+                <div class="stat-label">Unknown</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="alert-count" style="color:var(--red)">—</div>
+                <div class="stat-label">Alerts</div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" id="scan-btn" onclick="scanNetwork()">🔍 Scan Network</button>
+            <button class="btn btn-secondary" onclick="loadAlerts()">🔔 View Alerts</button>
+        </div>
+
+        <div class="section-title">📱 Devices on Your Network</div>
+        <div class="device-grid" id="device-grid">
+            <div class="empty">Click "Scan Network" to discover devices on your WiFi</div>
+        </div>
+
+        <div class="section-title">🔔 Recent Alerts</div>
+        <div class="alert-list" id="alert-list">
+            <div class="empty">No alerts yet — scan your network to start monitoring</div>
+        </div>
+
+        <div class="footer">
+            Built by <a href="https://github.com/Techris93" target="_blank">Techris93</a> ·
+            Powered by <a href="https://github.com/Techris93/OpenSentinel" target="_blank">OpenSentinel</a>
+        </div>
+    </div>
+
+    <script>
+        const API = '';
+
+        async function scanNetwork() {
+            const btn = document.getElementById('scan-btn');
+            btn.disabled = true; btn.textContent = '⏳ Scanning...'; btn.classList.add('scanning');
+
+            try {
+                const res = await fetch(`${API}/api/scan`);
+                const data = await res.json();
+                renderDevices(data);
+                updateStats(data);
+                if (data.alerts && data.alerts.length) renderAlerts(data.alerts);
+            } catch (e) {
+                document.getElementById('device-grid').innerHTML =
+                    `<div class="empty">❌ Could not connect to server. Is it running on port 5051?</div>`;
+            } finally {
+                btn.disabled = false; btn.textContent = '🔍 Scan Network'; btn.classList.remove('scanning');
+            }
+        }
+
+        function renderDevices(data) {
+            const grid = document.getElementById('device-grid');
+            if (!data.devices || !data.devices.length) {
+                grid.innerHTML = '<div class="empty">No devices found</div>'; return;
+            }
+
+            grid.innerHTML = data.devices.map(d => {
+                const isKnown = data.known_devices && data.known_devices.includes(d.mac);
+                const icon = d.vendor === 'Apple' ? '🍎' : d.vendor === 'Google' ? '📱'
+                    : d.vendor === 'Amazon' ? '🔊' : d.vendor === 'Samsung' ? '📺'
+                        : d.vendor === 'Unknown' ? '❓' : '💻';
+                return `
+                <div class="device-card ${isKnown ? 'trusted' : 'unknown'}">
+                    <div class="device-header">
+                        <span class="device-icon">${icon}</span>
+                        <span class="device-status ${isKnown ? 'known' : 'unknown'}">${isKnown ? '✓ Trusted' : '? Unknown'}</span>
+                    </div>
+                    <div class="device-ip">${d.ip}</div>
+                    <div class="device-mac">${d.mac}</div>
+                    <div class="device-vendor">${d.vendor}${d.hostname ? ' · ' + d.hostname : ''}</div>
+                    ${!isKnown ? `<button class="trust-btn" onclick="trustDevice('${d.mac}')">✓ Mark as Trusted</button>` : ''}
+                </div>`;
+            }).join('');
+        }
+
+        function updateStats(data) {
+            document.getElementById('total-count').textContent = data.device_count || 0;
+            document.getElementById('known-count').textContent = (data.known_devices || []).length;
+            document.getElementById('unknown-count').textContent = data.unknown_count || 0;
+            document.getElementById('alert-count').textContent = (data.alerts || []).length;
+        }
+
+        function renderAlerts(alerts) {
+            const list = document.getElementById('alert-list');
+            if (!alerts.length) { list.innerHTML = '<div class="empty">No alerts</div>'; return; }
+
+            list.innerHTML = alerts.slice(-20).reverse().map(a => `
+                <div class="alert-item ${a.severity === 'warning' ? 'warning' : ''}">
+                    <span>${a.severity === 'warning' ? '⚠️' : '🚨'}</span>
+                    <span>${a.message}</span>
+                    <span class="alert-time">${new Date(a.timestamp).toLocaleTimeString()}</span>
+                </div>
+            `).join('');
+        }
+
+        async function trustDevice(mac) {
+            const name = prompt('Give this device a name (e.g. "Dad\'s iPhone"):');
+            if (!name) return;
+            await fetch(`${API}/api/trust`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mac, name })
+            });
+            scanNetwork(); // refresh
+        }
+
+        async function loadAlerts() {
+            try {
+                const res = await fetch(`${API}/api/alerts`);
+                const data = await res.json();
+                renderAlerts(data.alerts);
+                document.getElementById('alert-count').textContent = data.total;
+            } catch (e) { }
+        }
+    </script>
+</body>
+
+</html>
