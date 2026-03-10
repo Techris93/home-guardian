@@ -5,10 +5,11 @@ FastAPI backend for the network monitoring dashboard.
 
 import asyncio
 import os
+import re
 from datetime import datetime
 from typing import Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -18,8 +19,25 @@ from scanner import quick_scan
 from monitor import DeviceMonitor
 
 
+# Security: load API key from environment — no hardcoded default
+_API_KEY = os.getenv("HOME_GUARDIAN_API_KEY")
+if not _API_KEY:
+    raise RuntimeError(
+        "HOME_GUARDIAN_API_KEY environment variable is not set. "
+        "Set it before starting the server (e.g. export HOME_GUARDIAN_API_KEY=$(openssl rand -hex 16))."
+    )
+
+MAC_PATTERN = re.compile(r'^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$')
+
 app = FastAPI(title="Home Guardian", version="1.0.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+# CORS: localhost only — never use "*" for the management API
+_cors_origins = os.getenv("HOME_GUARDIAN_CORS_ORIGINS", "http://localhost:5051").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"]
+)
 
 monitor = DeviceMonitor()
 monitor.load_state()
@@ -53,11 +71,23 @@ async def scan_network():
     return result
 
 
+
 @app.post("/api/trust")
-async def trust_device(req: TrustRequest):
-    """Mark a device as trusted."""
+async def trust_device(
+    req: TrustRequest,
+    x_home_guardian_key: Optional[str] = Header(None)
+):
+    """Mark a device as trusted. Requires API key authentication."""
+    # Auth check
+    if not x_home_guardian_key or x_home_guardian_key != _API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    # Validate MAC address format (prevent injection / spoofed MACs)
+    if not MAC_PATTERN.match(req.mac):
+        raise HTTPException(status_code=422, detail="Invalid MAC address format")
+    # Sanitise optional name field
+    safe_name = (req.name or "Unnamed Device")[:64]
     monitor.register_device(req.mac, {
-        "name": req.name or "Unnamed Device",
+        "name": safe_name,
         "mac": req.mac,
     })
     monitor.save_state()
@@ -88,4 +118,5 @@ if __name__ == "__main__":
     print("\n🏠 Home Guardian — Smart Network Monitor")
     print(f"   Dashboard:  http://localhost:5051")
     print(f"   API Docs:   http://localhost:5051/docs\n")
-    uvicorn.run(app, host="0.0.0.0", port=5051)
+    # Bind to 127.0.0.1 only — never expose on all interfaces without a reverse proxy
+    uvicorn.run(app, host="127.0.0.1", port=5051)
